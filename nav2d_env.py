@@ -31,7 +31,7 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         "render_fps": 50,
     }
 
-    def __init__(self, n: int = 1, render_mode: str = "human"):
+    def __init__(self, n: int = 1, render_mode: str = "human", render_goal: bool = True):
         """
         Args:
             n: int
@@ -49,6 +49,7 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
 
         self.screen_size = (300, 300)
         self.screen_center = (self.screen_size[0] // 2, self.screen_size[1] // 2)
+        self.render_goal = render_goal
 
         self.screen = None
         self.clock = None
@@ -72,6 +73,7 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         self.y_range = (-10, 10)
         self.vx_range = (-10, 10)
         self.vy_range = (-10, 10)
+        self.goal = np.zeros(2)
 
         self.min_distance = np.linalg.norm(np.array([self.x_range[1] - self.x_range[0], self.y_range[1] - self.y_range[0]])) / 12
 
@@ -158,7 +160,9 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
+        state: Optional[np.ndarray] = None,
     ):
+        """Passing state allows to set the initial state of the environment manually."""
         x, y, goal_x, goal_y = 0, 0, 0, 0
         while np.linalg.norm([x - goal_x, y - goal_y]) < self.min_distance:
             x = 0.8 * np.random.uniform(*self.x_range)
@@ -169,6 +173,11 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
             goal_y = 0.7 * np.random.uniform(*self.y_range)
 
         self.state = np.array([x, y, vx, vy, goal_x, goal_y], dtype=np.float32)
+        
+        if state is not None:
+            assert state.shape == self.state.shape, f"Invalid state shape {state.shape}."
+            self.state = state
+
         observation = self._get_observation()
         self.n_steps = 0
         info = {}
@@ -197,12 +206,13 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
 
                 self.draw_force(pos, angle, color, r=1.5, scale=0.5)
 
-        goal = self.coordinate_to_pixel(self.state[4:])
-        x_length = self.screen_size[0] // 60
-        pygame.draw.line(self.screen, self.goal_color, (int(goal[0] - x_length), int(goal[1] - x_length)),
-                         (int(goal[0] + x_length), int(goal[1] + x_length)), 2)
-        pygame.draw.line(self.screen, self.goal_color, (int(goal[0] - x_length), int(goal[1] + x_length)),
-                         (int(goal[0] + x_length), int(goal[1] - x_length)), 2)
+        if self.render_goal:
+            goal = self.coordinate_to_pixel(self.state[4:])
+            x_length = self.screen_size[0] // 60
+            pygame.draw.line(self.screen, self.goal_color, (int(goal[0] - x_length), int(goal[1] - x_length)),
+                            (int(goal[0] + x_length), int(goal[1] + x_length)), 2)
+            pygame.draw.line(self.screen, self.goal_color, (int(goal[0] - x_length), int(goal[1] + x_length)),
+                            (int(goal[0] + x_length), int(goal[1] - x_length)), 2)
 
         if self.render_mode == "human":
             pygame.display.flip()
@@ -237,6 +247,12 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
     def close(self):
         self.isopen = False
         pygame.quit()
+
+    def set_goal_manually(self, goal):
+        """Helper function to set the goal manually. This function is not considered by the reset function. Calling .reset() overwrites the goal."""
+        assert isinstance(goal, np.ndarray), "Goal must be of type ndarray"
+        assert goal.shape == (2,), "Goal must be a 2D array"
+        self.goal = goal
 
 register(
     id='Nav2D-v0',
