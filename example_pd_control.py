@@ -3,7 +3,7 @@ import numpy as np
 
 if __name__ == "__main__":
     render_mode="human"
-    save_gif = True
+    save_gif = False
     if save_gif:
         from PIL import Image
         render_mode = "rgb_array"
@@ -23,11 +23,12 @@ if __name__ == "__main__":
         observation, reward, terminated, truncated, _ = env.step(action)
         if truncated:
             print("Truncated")
-            break
+            #break
 
         if terminated:
             print("Terminated")
-            break
+            env.reset(options={"goal": np.array([0, 0], dtype=np.float32)})
+            #break
         frame = env.render()
         if save_gif:
             binary_frame = np.mean(frame, axis=2)

@@ -44,7 +44,7 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         assert render_mode in self.metadata["render_modes"], f"Invalid render mode {render_mode}"
         self.render_mode = render_mode
         self.dense_reward = True
-        self.n_max_steps = 250
+        self.n_max_steps = 5000
         self.visualize_actions = True
 
         self.screen_size = (300, 300)
@@ -160,23 +160,29 @@ class Nav2DEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
-        state: Optional[np.ndarray] = None,
     ):
-        """Passing state allows to set the initial state of the environment manually."""
-        x, y, goal_x, goal_y = 0, 0, 0, 0
-        while np.linalg.norm([x - goal_x, y - goal_y]) < self.min_distance:
-            x = 0.8 * np.random.uniform(*self.x_range)
-            y = 0.8 * np.random.uniform(*self.y_range)
-            vx = 0.05 * np.random.uniform(*self.x_range)
-            vy = 0.05 * np.random.uniform(*self.y_range)
-            goal_x = 0.7 * np.random.uniform(*self.x_range)
-            goal_y = 0.7 * np.random.uniform(*self.y_range)
-
-        self.state = np.array([x, y, vx, vy, goal_x, goal_y], dtype=np.float32)
+        """Passing options allows to set a part of or the full state of the environment."""
         
-        if state is not None:
-            assert state.shape == self.state.shape, f"Invalid state shape {state.shape}."
-            self.state = state
+        if options is not None:
+            # change only desired state variables
+            if "goal" in options:
+                assert isinstance(options["goal"], np.ndarray), "Goal must be of type ndarray"
+                assert options["goal"].shape == (2,), "Goal must be a 2D array"
+                self.goal = options["goal"]
+                self.state[4:] = self.goal
+        else:
+            # randomly sampled state
+            x, y, goal_x, goal_y = 0, 0, 0, 0
+            while np.linalg.norm([x - goal_x, y - goal_y]) < self.min_distance:
+                x = 0.8 * np.random.uniform(*self.x_range)
+                y = 0.8 * np.random.uniform(*self.y_range)
+                vx = 0.05 * np.random.uniform(*self.x_range)
+                vy = 0.05 * np.random.uniform(*self.y_range)
+                goal_x = 0.7 * np.random.uniform(*self.x_range)
+                goal_y = 0.7 * np.random.uniform(*self.y_range)
+
+            self.state = np.array([x, y, vx, vy, goal_x, goal_y], dtype=np.float32)
+
 
         observation = self._get_observation()
         self.n_steps = 0
